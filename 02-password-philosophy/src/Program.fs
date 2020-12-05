@@ -15,22 +15,37 @@ let ParsePolicyAndPassword (policyAndPassword: string) =
 
     let [| range ; character |] = policy.Split ' '
 
-    let [| min ; max |] = range.Split '-' |> Array.map int
+    let [| aNumber ; bNumber |] = range.Split '-' |> Array.map int
 
-    (character.[0], min, max, password)
+    (character.[0], aNumber, bNumber, password)
 
-let SolvePuzzle policiesAndPasswords =
+let Solve policiesAndPasswords validator =
     policiesAndPasswords
     |> Seq.map ParsePolicyAndPassword
-    |> Seq.filter IsPasswordValid
+    |> Seq.filter validator
     |> Seq.length
+
+let SolvePuzzle policiesAndPasswords =
+    Solve policiesAndPasswords IsPasswordValid
+
+
+let IsPasswordValidPartTwo (mustMatch, aNumber, bNumber, password: string) =
+    let aNumberMatches = password.[aNumber - 1] = mustMatch
+    let bNumberMatches = password.[bNumber - 1] = mustMatch
+
+    aNumberMatches && not bNumberMatches || bNumberMatches && not aNumberMatches
+
+let SolvePuzzlePartTwo policiesAndPasswords =
+    Solve policiesAndPasswords IsPasswordValidPartTwo
 
 [<EntryPoint>]
 let main argv =
 
     let answer =
         File.ReadLines(argv.[0])
-        |> SolvePuzzle
+        |> match Array.tryItem 1 argv with
+            | Some "2" ->  SolvePuzzlePartTwo
+            | _ ->  SolvePuzzle
 
     printfn "Answer is %d" answer
 
