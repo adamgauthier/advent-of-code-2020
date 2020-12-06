@@ -18,3 +18,20 @@ let ``SolvePuzzle WhenExample ThenReturns7`` () =
         ".#..#...#.#"
     ]
     Assert.Equal(7, result)
+
+[<Fact>]
+let ``SolvePuzzlePartTwo WhenExample ThenReturns336`` () =
+    let result = Program.SolvePuzzlePartTwo [
+        "..##.......";
+        "#...#...#..";
+        ".#....#..#.";
+        "..#.#...#.#";
+        ".#...##..#.";
+        "..#.##.....";
+        ".#.#.#....#";
+        ".#........#";
+        "#.##...#...";
+        "#...##....#";
+        ".#..#...#.#"
+    ]
+    Assert.Equal(336UL, result)

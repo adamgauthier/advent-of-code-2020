@@ -41,12 +41,9 @@ let SolvePuzzlePartTwo policiesAndPasswords =
 [<EntryPoint>]
 let main argv =
 
-    let answer =
-        File.ReadLines(argv.[0])
-        |> match Array.tryItem 1 argv with
-            | Some "2" ->  SolvePuzzlePartTwo
-            | _ ->  SolvePuzzle
+    let lines = File.ReadLines(argv.[0])
 
-    printfn "Answer is %d" answer
+    printfn "Answer for part one is %d" (SolvePuzzle lines)
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo lines)
 
     0

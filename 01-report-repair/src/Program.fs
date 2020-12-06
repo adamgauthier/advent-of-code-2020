@@ -1,7 +1,7 @@
 open System.IO
 
 let GetProduct numbers =
-    Seq.fold (*) 1 numbers
+    Seq.fold Checked.(*) 1 numbers
 
 let SumsTo sum (numbers: seq<int>) =
     Seq.sum numbers = sum
@@ -47,11 +47,7 @@ let main argv =
         |> Seq.map int
         |> Seq.toList
 
-    let answer =
-        match Array.tryItem 1 argv with
-        | Some "2" ->  SolvePuzzlePartTwo numbers
-        | _ ->  SolvePuzzle numbers
-
-    printfn "Answer is %d" answer
+    printfn "Answer for part one is %d" (SolvePuzzle numbers)
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo numbers)
 
     0
