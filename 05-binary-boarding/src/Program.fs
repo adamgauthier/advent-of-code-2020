@@ -13,10 +13,10 @@ let rec BinarySearch (instructions: char list) (min, max) (upperChar, lowerChar)
             BinarySearch tail (newMin, max) (upperChar, lowerChar)
     | [] when min = max -> min
 
-let GetRowPosition (fontBackInstructions: char list) (min, max) =
+let GetRowPosition fontBackInstructions (min, max) =
     BinarySearch fontBackInstructions (min, max) ('B', 'F')
 
-let GetColumnPosition (rightLeftInstructions: char list) (min, max)  =
+let GetColumnPosition rightLeftInstructions (min, max)  =
     BinarySearch rightLeftInstructions (min, max) ('R', 'L')
 
 let GetSeatPosition (boardingPass: string) =
@@ -31,9 +31,34 @@ let GetSeatPosition (boardingPass: string) =
 let GetSeatId (row, column) =
     (row * 8) + column
 
-let SolvePuzzle boardingPasses =
+let GetAllSeatIds boardingPasses =
     (Seq.map (GetSeatPosition >> GetSeatId) boardingPasses)
+
+let SolvePuzzle boardingPasses =
+    GetAllSeatIds boardingPasses
     |> Seq.max
+
+let rec GetAllPositions rows columns =
+    seq {
+        match rows with
+        | head :: tail ->
+            for element in columns do
+                yield (head, element)
+            yield! GetAllPositions tail columns
+        | _ -> ()
+    }
+
+let SolvePuzzlePartTwo boardingPasses =
+    let allSeats = GetAllPositions [ 0 .. 127 ] [ 0 .. 7 ] |> Seq.map GetSeatId
+    let boardedSeats = GetAllSeatIds boardingPasses
+
+    allSeats
+    |> Seq.filter (fun seat ->
+        boardedSeats |> Seq.contains (seat + 1) &&
+        boardedSeats |> Seq.contains (seat - 1) &&
+        not <| (boardedSeats |> Seq.contains seat)
+    )
+    |> Seq.exactlyOne
 
 [<EntryPoint>]
 let main argv =
@@ -44,5 +69,6 @@ let main argv =
         |> Async.RunSynchronously
 
     printfn "Answer for part one is %d" (SolvePuzzle boardingPasses)
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo boardingPasses)
 
     0
