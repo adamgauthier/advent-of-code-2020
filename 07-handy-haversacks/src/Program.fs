@@ -1,6 +1,7 @@
 open System.IO
 
-type Rule = { BagColor:string; ContainsBags:string }
+type HoldsBag = { BagColor: string; BagCount: int }
+type Rule = { BagColor: string; HoldsBags: option<seq<HoldsBag>> }
 
 let TakeFirstTwoWords (sentence: string) =
     sentence.Split(" ")
@@ -11,22 +12,43 @@ let ParseRule (rule: string) =
     let [| beforeContain; afterContain |] = rule.Split(" contain ")
 
     let bagColor = TakeFirstTwoWords beforeContain
+    let holds =
+        match afterContain with
+        | "no other bags." -> None
+        | holdsBagsText ->
+            let holdsBags = holdsBagsText.Split(", ")
+            let holdsBagsParsed =
+                holdsBags
+                |> Seq.map (fun holdsBag ->
+                    let [| countText; colorOne; colorTwo; _ |] = holdsBag.Split(" ")
+                    let count = int countText
+                    let color = [colorOne; colorTwo] |> String.concat " "
 
-    { BagColor=bagColor; ContainsBags=afterContain }
+                    { BagColor=color; BagCount=count }
+                )
+            Some holdsBagsParsed
+
+    { BagColor=bagColor; HoldsBags=holds }
 
 let ContainsDirectly (bagColor: string) rule =
-    rule.ContainsBags.Contains(bagColor)
+    match rule.HoldsBags with
+    | Some subRules -> subRules |> Seq.exists (fun holdsBag -> holdsBag.BagColor = bagColor)
+    | None -> false
 
 let rec GetBagsThatEventuallyContain bagColor rules =
     seq {
-        let rulesThatContainBagDirectly = rules |> Seq.filter (ContainsDirectly bagColor)
-        yield! rulesThatContainBagDirectly
+        let bagsThatContainBagDirectly =
+            rules
+            |> Seq.filter (ContainsDirectly bagColor)
+            |> Seq.map (fun rule -> rule.BagColor)
 
-        let containsIndirectly =
-            rulesThatContainBagDirectly
-            |> Seq.collect (fun rule -> rules |> GetBagsThatEventuallyContain rule.BagColor)
+        yield! bagsThatContainBagDirectly
 
-        yield! containsIndirectly
+        let bagsThatContainBagIndirectly =
+            bagsThatContainBagDirectly
+            |> Seq.collect (fun bagColor -> rules |> GetBagsThatEventuallyContain bagColor)
+
+        yield! bagsThatContainBagIndirectly
     }
 
 let SolvePuzzle rules =
@@ -35,6 +57,20 @@ let SolvePuzzle rules =
     |> GetBagsThatEventuallyContain "shiny gold"
     |> Seq.distinct
     |> Seq.length
+
+
+let rec GetContainedBagCount (color: string) rules =
+    let rule = rules |> Seq.find (fun rule -> rule.BagColor = color)
+    match rule.HoldsBags with
+    | Some holdsBags ->
+        holdsBags
+        |> Seq.sumBy (fun holdsBag -> holdsBag.BagCount + holdsBag.BagCount * (rules |> GetContainedBagCount holdsBag.BagColor))
+    | None -> 0
+
+let SolvePuzzlePartTwo rules =
+    rules
+    |> Seq.map ParseRule
+    |> GetContainedBagCount "shiny gold"
 
 [<EntryPoint>]
 let main argv =
@@ -45,5 +81,6 @@ let main argv =
         |> Async.RunSynchronously
 
     printfn "Answer for part one is %d" (SolvePuzzle rules)
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo rules)
 
     0
