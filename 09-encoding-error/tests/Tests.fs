@@ -27,3 +27,29 @@ let ``SolvePuzzle WhenExample ThenReturns127`` () =
 576".Replace("\r\n", "\n").Split("\n") |> List.ofSeq)
 
     Assert.Equal(127L, result)
+
+[<Fact>]
+let ``SolvePuzzlePartTwo WhenExample ThenReturns62`` () =
+    let result =
+        Program.SolvePuzzlePartTwo 127L ("35
+20
+15
+25
+47
+40
+62
+55
+65
+95
+102
+117
+150
+182
+127
+219
+299
+277
+309
+576".Replace("\r\n", "\n").Split("\n") |> List.ofSeq)
+
+    Assert.Equal(62L, result)

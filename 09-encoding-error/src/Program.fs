@@ -26,6 +26,34 @@ let SolvePuzzle preambleSize rawNumbers =
     |> snd
 
 
+let FindRangeThatSumsTo target allNumbers =
+    let rec findRange firstIndex currentIndex target allNumbers =
+        if currentIndex >= List.length allNumbers then
+            findRange (firstIndex + 1) 0 target allNumbers
+        else
+            let range = allNumbers.[firstIndex..currentIndex]
+
+            match Seq.sum range with
+            | sum when sum = target -> range
+            | _ -> findRange firstIndex (currentIndex + 1) target allNumbers
+
+    findRange 0 0 target allNumbers
+
+let GetMinAndMax sequence =
+    (Seq.min sequence, Seq.max sequence)
+
+let SolvePuzzlePartTwo target rawNumbers =
+    let numbersBeforeTarget =
+        rawNumbers
+        |> List.map int64
+        |> List.takeWhile (fun n -> n <> target)
+
+    numbersBeforeTarget
+    |> FindRangeThatSumsTo target
+    |> GetMinAndMax
+    |> fun (min, max) -> min + max
+
+
 [<EntryPoint>]
 let main argv =
 
@@ -35,6 +63,9 @@ let main argv =
         |> Async.RunSynchronously
         |> List.ofArray
 
-    printfn "Answer for part one is %d" (SolvePuzzle 25 lines)
+    let partOneAnswer = SolvePuzzle 25 lines
+
+    printfn "Answer for part one is %d" partOneAnswer
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo partOneAnswer lines)
 
     0
