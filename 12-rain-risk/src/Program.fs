@@ -36,11 +36,46 @@ let RunAllInstructions (lines: seq<string * int64>) =
     runInstructions lines 0 90L (0L, 0L)
 
 
-let SolvePuzzle lines =
+let RunAllInstructionsWithWaypoint (lines: seq<string * int64>) =
+    let rec runInstructions lines i (eastWest, northSouth) (waypointEast, waypointNorth) =
+        match lines |> Seq.tryItem i with
+        | None -> (eastWest, northSouth)
+        | Some (action, value) ->
+            let runNextInstructions = runInstructions lines (i+1)
+
+            match action with
+            | "N" -> runNextInstructions (eastWest, northSouth) (waypointEast, waypointNorth + value)
+            | "S" -> runNextInstructions (eastWest, northSouth) (waypointEast, waypointNorth - value)
+            | "E" -> runNextInstructions (eastWest, northSouth) (waypointEast + value, waypointNorth)
+            | "W" -> runNextInstructions (eastWest, northSouth) (waypointEast - value, waypointNorth)
+            | "L" ->
+                match value with
+                | 90L -> runNextInstructions (eastWest, northSouth) (-waypointNorth, waypointEast)
+                | 180L -> runNextInstructions (eastWest, northSouth) (-waypointEast, -waypointNorth)
+                | 270L -> runNextInstructions (eastWest, northSouth) (waypointNorth, -waypointEast)
+            | "R" ->
+                match value with
+                | 90L -> runNextInstructions (eastWest, northSouth) (waypointNorth, -waypointEast)
+                | 180L -> runNextInstructions (eastWest, northSouth) (-waypointEast, -waypointNorth)
+                | 270L -> runNextInstructions (eastWest, northSouth) (-waypointNorth, waypointEast)
+            | "F" ->
+                runNextInstructions (eastWest + (value * waypointEast), northSouth + (value * waypointNorth)) (waypointEast, waypointNorth)
+
+    runInstructions lines 0 (0L, 0L) (10L, 1L)
+
+
+let GetManhattanDistanceAfterInstructions lines runInstructions =
     let parsedLines = lines |> Seq.map ParseInstruction
-    let (eastWest, northSouth) = RunAllInstructions parsedLines
+    let (eastWest, northSouth) = runInstructions parsedLines
 
     abs eastWest + abs northSouth
+
+
+let SolvePuzzle lines =
+    GetManhattanDistanceAfterInstructions lines RunAllInstructions
+
+let SolvePuzzlePartTwo lines =
+    GetManhattanDistanceAfterInstructions lines RunAllInstructionsWithWaypoint
 
 
 [<EntryPoint>]
@@ -53,5 +88,6 @@ let main argv =
         |> List.ofArray
 
     printfn "Answer for part one is %d" (SolvePuzzle lines)
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo lines)
 
     0
