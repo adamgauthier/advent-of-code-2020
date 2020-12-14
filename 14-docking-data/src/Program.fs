@@ -20,7 +20,25 @@ let ParseInstructions (lines: string list) =
             SetMem (address, value)
     )
 
-let ExecuteInstructions instructions =
+let SetMemoryPartOne memory mask (address: int64, value: int64) =
+    let binaryValue = Convert.ToString(value, 2).PadLeft(36, '0')
+
+    let maskedBinaryValue =
+        binaryValue
+        |> Seq.indexed
+        |> Seq.map (fun (i, originalChar) ->
+            match mask |> List.tryItem i with
+            | Some maskChar when maskChar <> 'X' -> maskChar
+            | _ -> originalChar
+        )
+        |> Seq.toArray
+        |> String
+
+    let newValue = Convert.ToInt64(maskedBinaryValue, 2)
+
+    memory |> Map.change address (fun _ -> Some newValue)
+
+let ExecuteInstructions instructions setMemory =
     let rec executeInstructions instructions i mask memory =
         match instructions |> List.tryItem i with
         | Some instruction ->
@@ -29,22 +47,7 @@ let ExecuteInstructions instructions =
             match instruction with
             | SetMask value -> executeNextInstruction value memory
             | SetMem (address, value) ->
-                let binaryValue = Convert.ToString(value, 2).PadLeft(36, '0')
-
-                let maskedBinaryValue =
-                    binaryValue
-                    |> Seq.indexed
-                    |> Seq.map (fun (i, originalChar) ->
-                        match mask |> List.tryItem i with
-                        | Some maskChar when maskChar <> 'X' -> maskChar
-                        | _ -> originalChar
-                    )
-                    |> Seq.toArray
-                    |> String
-
-                let newValue = Convert.ToInt64(maskedBinaryValue, 2)
-
-                let newMemory = memory |> Map.change address (fun _ -> Some newValue)
+                let newMemory = setMemory memory mask (address, value)
 
                 executeNextInstruction mask newMemory
         | None -> memory
@@ -55,12 +58,50 @@ let ExecuteInstructions instructions =
 let SolvePuzzle lines =
     let instructions = ParseInstructions lines
 
-    let memory = ExecuteInstructions instructions
+    let memory = ExecuteInstructions instructions SetMemoryPartOne
 
     memory
     |> Map.toSeq
     |> Seq.sumBy (fun (_, value) -> value)
 
+
+let SetMemoryPartTwo memory mask (address: int64, value: int64) =
+    let binaryAddress = Convert.ToString(address, 2).PadLeft(36, '0')
+
+    let maskedBinaryAddress =
+        binaryAddress
+        |> Seq.indexed
+        |> Seq.map (fun (i, originalChar) ->
+            match mask |> List.tryItem i with
+            | Some maskChar when maskChar <> '0' -> maskChar
+            | _ -> originalChar
+        )
+        |> Seq.toArray
+        |> String
+
+    let rec generatePossibleAddresses (line: string) =
+        match line |> Seq.tryFindIndex ((=) 'X') with
+        | Some i ->
+            let lineWith0 = line.Remove(i, 1).Insert(i, "0")
+            let lineWith1 = line.Remove(i, 1).Insert(i, "1")
+
+            List.append (generatePossibleAddresses lineWith0) (generatePossibleAddresses lineWith1)
+        | None -> [line]
+
+    let allAddresses = generatePossibleAddresses maskedBinaryAddress
+
+    allAddresses
+    |> List.fold (fun mem matchingAddress -> mem |> Map.change (int64 (Convert.ToUInt64(matchingAddress, 2))) (fun _ -> Some (uint64 value))) memory
+
+
+let SolvePuzzlePartTwo lines =
+    let instructions = ParseInstructions lines
+
+    let memory = ExecuteInstructions instructions SetMemoryPartTwo
+
+    memory
+    |> Map.toSeq
+    |> Seq.sumBy (fun (_, value) -> value)
 
 [<EntryPoint>]
 let main argv =
@@ -72,5 +113,6 @@ let main argv =
         |> List.ofArray
 
     printfn "Answer for part one is %d" (SolvePuzzle lines)
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo lines)
 
     0
