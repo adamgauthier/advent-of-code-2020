@@ -50,3 +50,52 @@ let ``SolvePuzzle WhenSeventhExample ThenReturns1836`` () =
         Program.SolvePuzzle("3,1,2")
 
     Assert.Equal(1836, result)
+
+[<Fact>]
+let ``SolvePuzzlePartTwo WhenFirstExample ThenReturns175594`` () =
+    let result =
+        Program.SolvePuzzlePartTwo("0,3,6")
+
+    Assert.Equal(175594, result)
+
+[<Fact>]
+let ``SolvePuzzlePartTwo WhenSecondExample ThenReturns2578`` () =
+    let result =
+        Program.SolvePuzzlePartTwo("1,3,2")
+
+    Assert.Equal(2578, result)
+
+[<Fact>]
+let ``SolvePuzzlePartTwo WhenThirdExample ThenReturns3544142`` () =
+    let result =
+        Program.SolvePuzzlePartTwo("2,1,3")
+
+    Assert.Equal(3544142, result)
+
+[<Fact>]
+let ``SolvePuzzlePartTwo WhenFourthExample ThenReturns261214`` () =
+    let result =
+        Program.SolvePuzzlePartTwo("1,2,3")
+
+    Assert.Equal(261214, result)
+
+[<Fact>]
+let ``SolvePuzzlePartTwo WhenFifthExample ThenReturns6895259`` () =
+    let result =
+        Program.SolvePuzzlePartTwo("2,3,1")
+
+    Assert.Equal(6895259, result)
+
+[<Fact>]
+let ``SolvePuzzlePartTwo WhenSixthExample ThenReturns18`` () =
+    let result =
+        Program.SolvePuzzlePartTwo("3,2,1")
+
+    Assert.Equal(18, result)
+
+[<Fact>]
+let ``SolvePuzzlePartTwo WhenSeventhExample ThenReturns362`` () =
+    let result =
+        Program.SolvePuzzlePartTwo("3,1,2")
+
+    Assert.Equal(362, result)

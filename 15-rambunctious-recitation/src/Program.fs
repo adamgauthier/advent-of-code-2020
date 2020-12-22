@@ -1,7 +1,8 @@
-type SpokenNumber = { LastTurnSpoken: int; LastLastTurnSpoken: option<int> }
+type LastSpoken = { LastTurnSpoken: int; LastLastTurnSpoken: option<int> }
 
-let rec SpeakNumbersUntilTurn turnToStopAt allSpokenNumbers lastNumber =
-    let lastSpokenNumber = allSpokenNumbers |> Map.find lastNumber
+// using mutable data structure to dramatically improve peformance
+let rec SpeakNumbersUntilTurn turnToStopAt (spokenNumbers: System.Collections.Generic.Dictionary<int, LastSpoken>) lastNumber =
+    let lastSpokenNumber = spokenNumbers.[lastNumber]
 
     if lastSpokenNumber.LastTurnSpoken = turnToStopAt then
         lastNumber
@@ -12,25 +13,24 @@ let rec SpeakNumbersUntilTurn turnToStopAt allSpokenNumbers lastNumber =
             | Some lastLastTurnSpoken -> lastSpokenNumber.LastTurnSpoken - lastLastTurnSpoken
             | None -> 0
 
-        let newSpokenNumbers = allSpokenNumbers |> Map.change numberToSpeak (fun toChange ->
-            match toChange with
-            | Some turn ->
-                Some ({ LastTurnSpoken = currentTurn; LastLastTurnSpoken = Some turn.LastTurnSpoken })
-            | None ->
-                Some ({ LastTurnSpoken = currentTurn; LastLastTurnSpoken = None })
-        )
+        let lastLastTurnSpoken =
+            match spokenNumbers.TryGetValue(numberToSpeak) with
+            | true, value -> Some value.LastTurnSpoken
+            | false, _ -> None
 
-        SpeakNumbersUntilTurn turnToStopAt newSpokenNumbers numberToSpeak
+        spokenNumbers.[numberToSpeak] <- { LastTurnSpoken = currentTurn; LastLastTurnSpoken = lastLastTurnSpoken }
+
+        SpeakNumbersUntilTurn turnToStopAt spokenNumbers numberToSpeak
 
 
 let SpeakNumbers initialNumbers turnToStopAt =
-    let spokenNumbers: Map<int, SpokenNumber> =
-        initialNumbers
-        |> Array.indexed
-        |> Array.map (fun (index, number) ->
-            (number, { LastTurnSpoken = index + 1; LastLastTurnSpoken = None })
-        )
-        |> Map.ofArray
+    let spokenNumbers = new System.Collections.Generic.Dictionary<int, LastSpoken>()
+
+    initialNumbers
+    |> Array.indexed
+    |> Array.iter (fun (index, number) ->
+        spokenNumbers.[number] <- { LastTurnSpoken = index + 1; LastLastTurnSpoken = None }
+    )
 
     SpeakNumbersUntilTurn turnToStopAt spokenNumbers (initialNumbers |> Seq.last)
 
@@ -40,9 +40,15 @@ let SolvePuzzle (input: string) =
 
     SpeakNumbers numbers 2020
 
+let SolvePuzzlePartTwo (input: string) =
+    let numbers = input.Split(',') |> Array.map int
+
+    SpeakNumbers numbers 30000000
+
 [<EntryPoint>]
 let main argv =
 
     printfn "Answer for part one is %d" (SolvePuzzle "0,5,4,1,10,14,7")
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo "0,5,4,1,10,14,7")
 
     0
