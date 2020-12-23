@@ -26,10 +26,36 @@ let ParseInput (input: string list): Expression list =
         |> Array.toList
     )
 
-let rec Evaluate (expression: Expression) =
+let EvaluateFirstAdditionOrMultiplication (expression: Expression) =
+    let [Literal lit1; operator; Literal lit2] = expression |> List.take 3
+
+    let result =
+        match operator with
+        | Addition -> lit1 + lit2
+        | Multiplication -> lit1 * lit2
+
+    [Literal result] @ (expression |> List.skip 3)
+
+let EvaluateAdditionFirstThenMultiplication (expression: Expression) =
+    match expression |> List.tryFindIndex ((=) Addition) with
+    | Some additionIndex ->
+        let [Literal lit1; Addition; Literal lit2] = expression.[additionIndex-1..additionIndex+1]
+
+        let result = lit1 + lit2
+
+        expression.[0..additionIndex-2] @ [Literal result] @ expression.[additionIndex+2..expression.Length-1]
+    | None ->
+        let [Literal lit1; Multiplication; Literal lit2] = expression |> List.take 3
+
+        let result = lit1 * lit2
+
+        [Literal result] @ (expression |> List.skip 3)
+
+let rec Evaluate evaluateFirstOperationWithoutParantheses (expression: Expression) =
     match expression with
     | [Literal value] -> value
     | complex ->
+        let evaluateNext = Evaluate evaluateFirstOperationWithoutParantheses
         match complex |> List.tryFindIndex ((=) OpenParentheses) with
         | Some startIndex ->
             let rec findClosingIndex currentIndex openCount =
@@ -41,25 +67,26 @@ let rec Evaluate (expression: Expression) =
 
             let closingIndex = findClosingIndex (startIndex+1) 0
 
-            let subResult = Evaluate complex.[startIndex+1..closingIndex-1]
+            let subResult = evaluateNext complex.[startIndex+1..closingIndex-1]
 
-            Evaluate (complex.[0..startIndex-1] @ [Literal subResult] @ complex.[closingIndex+1..complex.Length-1])
+            evaluateNext (complex.[0..startIndex-1] @ [Literal subResult] @ complex.[closingIndex+1..complex.Length-1])
         | None ->
-            let [Literal lit1; operator; Literal lit2] = complex |> List.take 3
+            let evaluated = evaluateFirstOperationWithoutParantheses complex
 
-            let result =
-                match operator with
-                | Addition -> lit1 + lit2
-                | Multiplication -> lit1 * lit2
-
-            Evaluate ([Literal result] @ (complex |> List.skip 3))
+            evaluateNext evaluated
 
 
 let SolvePuzzle input =
     let expressions = ParseInput input
 
     expressions
-    |> Seq.sumBy Evaluate
+    |> Seq.sumBy (Evaluate EvaluateFirstAdditionOrMultiplication)
+
+let SolvePuzzlePartTwo input =
+    let expressions = ParseInput input
+
+    expressions
+    |> Seq.sumBy (Evaluate EvaluateAdditionFirstThenMultiplication)
 
 [<EntryPoint>]
 let main argv =
@@ -71,5 +98,6 @@ let main argv =
         |> List.ofArray
 
     printfn "Answer for part one is %d" (SolvePuzzle input)
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo input)
 
     0
