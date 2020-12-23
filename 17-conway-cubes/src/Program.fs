@@ -4,85 +4,108 @@ type Cube =
     | Active
     | Inactive
 
-type Chart2D = Map<int, Map<int, Cube>>
-type Chart3D = Map<int, Chart2D>
+type Dimension =
+    | CubeDimension of Map<int, Cube>
+    | WrappedDimension of Map<int, Dimension>
 
-let ParseCubeChart (lines: string list): Chart2D =
-    lines
-    |> List.map (fun line ->
-        line
-        |> Seq.map (fun c ->
-            match c with
-            | '#' -> Active
-            | '.' -> Inactive
+let ParseDimension2D (lines: string list) =
+    let parsedDimension =
+        lines
+        |> List.map (fun line ->
+            let parsedCubes = line |> Seq.map (fun c ->
+                match c with
+                | '#' -> Active
+                | '.' -> Inactive
+            )
+
+            CubeDimension (parsedCubes |> Seq.indexed |> Map.ofSeq)
         )
-        |> Seq.indexed
-        |> Map.ofSeq
-    )
-    |> List.indexed
-    |> Map.ofList
+        |> List.indexed
+        |> Map.ofList
 
-let GetCube (chart: Chart3D) (zIndex: int, lineIndex: int, columnIndex: int): Cube =
-    match chart |> Map.tryFind zIndex with
-    | Some dimension ->
-        match dimension |> Map.tryFind lineIndex with
-        | Some line ->
-            match line |> Map.tryFind columnIndex with
-            | Some cube -> cube
-            | None -> Inactive
+    WrappedDimension parsedDimension
+
+let rec GetCube (dimension: Dimension) (indexes: int list): Cube =
+    let firstIndex :: rest = indexes
+
+    match dimension with
+    | CubeDimension cubeDimension ->
+        match cubeDimension |> Map.tryFind firstIndex with
+        | Some cube -> cube
         | None -> Inactive
-    | None -> Inactive
+    | WrappedDimension wrappedDimension ->
+        match wrappedDimension |> Map.tryFind firstIndex with
+        | Some subDimension -> GetCube subDimension rest
+        | None -> Inactive
 
-let rec GetAdjacents z x y =
-    seq {
-        for zAdj in [(z-1)..(z+1)] do
-            for xAdj in [(x-1)..(x+1)] do
-                for yAdj in [(y-1)..(y+1)] do
-                    yield (zAdj, xAdj, yAdj)
-    }
+let rec CountCubes (dimension: Dimension) (cubeType: Cube) =
+    match dimension with
+    | CubeDimension cubeDimension ->
+        cubeDimension
+        |> Map.filter (fun _ value -> value = cubeType)
+        |> Map.count
+    | WrappedDimension wrappedDimension ->
+        wrappedDimension
+        |> Map.toList
+        |> List.sumBy (fun (_, subDimension) -> CountCubes subDimension cubeType)
 
-let ExtendChard3D chart =
-    let lowestZ = chart |> Map.toList |> List.map fst |> List.min
-    let highestZ = chart |> Map.toList |> List.map fst |> List.max
+let GetAdjacents (indexes: int list): int list list =
+    let rec loop indexesLeft currentIndexes =
+        match indexesLeft with
+        | lastIndex :: [] ->
+            [lastIndex-1..lastIndex+1] |> List.map (fun i -> currentIndexes @ [i])
+        | firstRemainingIndex :: rest ->
+            [firstRemainingIndex-1..firstRemainingIndex+1] |> List.collect (fun i -> loop (rest) (currentIndexes @ [i]))
 
-    let extended =
-        chart
-        |> Map.map (fun _ dimension ->
-            let lowestX = dimension |> Map.toList |> List.map fst |> List.min
-            let highestX = dimension |> Map.toList |> List.map fst |> List.max
+    loop (indexes) []
 
-            let extendedDimension =
-                dimension
-                |> Map.map (fun _ line ->
-                    let lowestY = line |> Map.toList |> List.map fst |> List.min
-                    let highestY = line |> Map.toList |> List.map fst |> List.max
-                    line
-                    |> Map.add (lowestY-1) Inactive
-                    |> Map.add (highestY+1) Inactive
-                )
+let rec ExtendDimension (dimension: Dimension) =
+    match dimension with
+    | CubeDimension cubeDimension ->
+        let lowestIndex = cubeDimension |> Map.toList |> List.map fst |> List.min
+        let highestIndex = cubeDimension |> Map.toList |> List.map fst |> List.max
 
-            extendedDimension
-            |> Map.add (lowestX-1) (extendedDimension |> Map.find lowestX |> Map.map (fun _ _ -> Inactive))
-            |> Map.add (highestX+1) (extendedDimension |> Map.find highestX |> Map.map (fun _ _ -> Inactive))
-        )
+        let extended =
+            cubeDimension
+            |> Map.add (lowestIndex-1) Inactive
+            |> Map.add (highestIndex+1) Inactive
 
-    extended
-    |> Map.add (lowestZ-1) (extended |> Map.find lowestZ |> Map.map (fun _ d -> d |> Map.map (fun _ _ -> Inactive)))
-    |> Map.add (highestZ+1) (extended |> Map.find highestZ |> Map.map (fun _ d -> d |> Map.map (fun _ _ -> Inactive)))
+        CubeDimension extended
+    | WrappedDimension wrappedDimension ->
+        let extendedSubDimension =
+            wrappedDimension
+            |> Map.map (fun _ subDimension -> ExtendDimension subDimension)
 
-let ApplyRules (chart: Chart3D): Chart3D =
-    let extended = ExtendChard3D chart
+        let rec createInactiveDimension (dim: Dimension) =
+            match dim with
+            | CubeDimension cubeDimension ->
+                CubeDimension (cubeDimension |> Map.map (fun _ _ -> Inactive))
+            | WrappedDimension wrappedDimension ->
+                WrappedDimension (wrappedDimension |> Map.map (fun _ d -> d |> createInactiveDimension))
 
-    extended
-    |> Map.map (fun zIndex dimension ->
-        dimension
-        |> Map.map (fun lineIndex line ->
-            line
-            |> Map.map (fun columnIndex cube ->
+        let lowestIndex = extendedSubDimension |> Map.toList |> List.map fst |> List.min
+        let highestIndex = extendedSubDimension |> Map.toList |> List.map fst |> List.max
+
+        let extended =
+            extendedSubDimension
+            |> Map.add (lowestIndex-1) (extendedSubDimension |> Map.find lowestIndex |> createInactiveDimension)
+            |> Map.add (highestIndex+1) (extendedSubDimension |> Map.find highestIndex |> createInactiveDimension)
+
+        WrappedDimension extended
+
+let ApplyRules (dimension: Dimension): Dimension =
+    let extended = ExtendDimension dimension
+
+    let rec transformCubes dim indexes =
+        match dim with
+        | CubeDimension cubeDimension ->
+            CubeDimension (cubeDimension |> Map.map (fun lastIndex cube ->
+                let coordinates = (indexes @ [lastIndex])
+
                 let adjacents =
-                    GetAdjacents zIndex lineIndex columnIndex
-                    |> Seq.filter ((<>) (zIndex, lineIndex, columnIndex))
-                    |> Seq.map (GetCube chart)
+                    GetAdjacents coordinates
+                    |> Seq.except [coordinates]
+                    |> Seq.map (GetCube extended)
                     |> List.ofSeq
 
                 match cube with
@@ -94,35 +117,36 @@ let ApplyRules (chart: Chart3D): Chart3D =
                     match adjacents |> Seq.filter ((=) Active) |> Seq.length with
                     | active when active = 3 -> Active
                     | _ -> Inactive
-            )
-        )
-    )
+            ))
+        | WrappedDimension wrappedDimension ->
+            WrappedDimension (wrappedDimension |> Map.map (fun index d ->
+                transformCubes d (indexes @ [index])
+            ))
 
-let CountCubes (chart: Chart3D) (cube: Cube) =
-    chart
-    |> Map.toList
-    |> List.sumBy (fun (_, dimension) ->
-        dimension
-        |> Map.toList
-        |> List.sumBy (fun (_, line) ->
-            line
-            |> Map.filter (fun _ value -> value = cube)
-            |> Map.count
-        )
-    )
+    transformCubes extended []
 
-let rec ApplySixCycles applyRules chart i =
+
+let rec ApplySixCycles dimension i =
     if i = 6 then
-        chart
+        dimension
     else
-        let newChart = applyRules chart
-        ApplySixCycles applyRules newChart (i+1)
+        let newDimension = ApplyRules dimension
+        ApplySixCycles newDimension (i+1)
 
 let SolvePuzzle lines =
-    let chart = ParseCubeChart lines
-    let chart3D = Map.empty |> Map.add 0 chart
+    let dimension2D = ParseDimension2D lines
+    let dimension3D = WrappedDimension (Map.ofList [(0, dimension2D)])
 
-    let afterSixCycles = ApplySixCycles ApplyRules chart3D 0
+    let afterSixCycles = ApplySixCycles dimension3D 0
+
+    CountCubes afterSixCycles Active
+
+let SolvePuzzlePartTwo lines =
+    let dimension2D = ParseDimension2D lines
+    let dimension3D = WrappedDimension (Map.ofList [(0, dimension2D)])
+    let dimension4D = WrappedDimension (Map.ofList [(0, dimension3D)])
+
+    let afterSixCycles = ApplySixCycles dimension4D 0
 
     CountCubes afterSixCycles Active
 
@@ -136,5 +160,6 @@ let main argv =
         |> List.ofArray
 
     printfn "Answer for part one is %d" (SolvePuzzle lines)
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo lines)
 
     0
