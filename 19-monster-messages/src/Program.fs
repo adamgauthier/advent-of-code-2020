@@ -1,7 +1,7 @@
 open System.IO
+open System.Text.RegularExpressions
 
 type RuleId = int
-
 type Rule =
     | MatchesLiteral of char
     | MatchesSubRules of RuleId list list
@@ -34,43 +34,55 @@ let ParseInput (input: string): Map<RuleId, Rule> * string list =
 
     (parsedRules, rawReceivedMessages.Split("\n") |> Array.toList)
 
-let rec CountRuleLength rule allRules =
+let MatchesRule ruleRegex message =
+    Regex.IsMatch(message, "^" + ruleRegex + "$")
+
+let rec RuleToRegex (rules: Map<RuleId, Rule>) ruleId =
+    let rule = rules.[ruleId]
     match rule with
-    | MatchesLiteral _ -> 1
-    | MatchesSubRules subRules ->
-        subRules.[0]
-        |> List.map (fun ruleId -> allRules |> Map.find ruleId)
-        |> List.sumBy (fun rule -> CountRuleLength rule allRules)
+    | MatchesLiteral literal -> literal.ToString()
+    | MatchesSubRules orSubRules ->
+        let orSubRulesRegexes =
+            orSubRules
+            |> List.map (fun subRuleIds ->
+                let subRulesRegexes = subRuleIds |> List.map (RuleToRegex rules)
+                "(" + (String.concat ")(" subRulesRegexes) + ")"
+            )
+        "(" + (String.concat ")|(" orSubRulesRegexes) + ")"
 
-let rec MatchesRule rule allRules message =
-    match rule with
-    | MatchesLiteral literal -> message = literal.ToString()
-    | MatchesSubRules [ subRuleIds ] ->
-        let (matches, messageLeft) =
-            subRuleIds
-            |> Seq.fold (fun (matches, currentMessage: string) ruleId ->
-                let subRule = allRules |> Map.find ruleId
-                let length = allRules |> CountRuleLength subRule
+let CountMessagesMatchingRule0 rules messages =
+    let rule0Regex = RuleToRegex rules 0
 
-                let newCurrentMessage = currentMessage.[length..currentMessage.Length-1]
-                let newMatches = matches && MatchesRule subRule allRules currentMessage.[0..length-1]
-
-                (newMatches, newCurrentMessage)
-            ) (true, message)
-
-        matches && messageLeft.Length = 0
-    | MatchesSubRules orSubRuleIds ->
-        orSubRuleIds
-        |> Seq.exists (fun subRuleIds ->
-            MatchesRule (MatchesSubRules [subRuleIds]) allRules message
-        )
+    messages
+    |> Seq.filter (MatchesRule rule0Regex)
+    |> Seq.length
 
 let SolvePuzzle input =
     let (rules, messages) = ParseInput input
 
-    messages
-    |> Seq.filter (MatchesRule rules.[0] rules)
-    |> Seq.length
+    CountMessagesMatchingRule0 rules messages
+
+let SolvePuzzlePartTwo input =
+    let (rules, messages) = ParseInput input
+
+    let newRules =
+        rules
+        |> Map.change 8 (fun _ ->
+            let subRules = [
+                for i in [1..6] do
+                    List.replicate i 42
+            ]
+            Some (MatchesSubRules subRules)
+        )
+        |> Map.change 11 (fun _ ->
+            let subRules = [
+                for i in [1..6] do
+                    List.replicate i 42 @ List.replicate i 31
+            ]
+            Some (MatchesSubRules subRules)
+        )
+
+    CountMessagesMatchingRule0 newRules messages
 
 [<EntryPoint>]
 let main argv =
@@ -83,5 +95,6 @@ let main argv =
         |> String.concat "\n"
 
     printfn "Answer for part one is %d" (SolvePuzzle input)
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo input)
 
     0
