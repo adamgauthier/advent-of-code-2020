@@ -1,4 +1,6 @@
 open System.IO
+open System
+open System.Text.RegularExpressions
 
 type TileId = int64
 type TileImage = Map<(int * int), char>
@@ -204,6 +206,117 @@ let SolvePuzzle input =
     cornerIds
     |> Seq.fold Checked.(*) 1L
 
+
+type TileWithSeaMonsterCount = { Tile: Tile; SeaMonsterCount: int }
+
+let TileToStringList tile =
+    tile.Image
+    |> Map.fold (fun newMap (rowIndex, columnIndex) character ->
+        newMap |> Map.change rowIndex (fun currentRow ->
+            match currentRow with
+            | Some row -> Some (row |> (Map.add columnIndex character))
+            | None -> Some ([(columnIndex, character)] |> Map.ofList)
+        )
+    ) Map.empty
+    |> Map.map (fun position value ->
+        value
+        |> Map.toList
+        |> List.map snd
+        |> Seq.toArray
+        |> String
+    )
+    |> Map.toList
+    |> List.map snd
+
+let SolvePuzzlePartTwo input =
+    let tiles = ParseInput input
+
+    let solution = ArrangeAllTiles tiles
+
+    let withoutBorders =
+        solution.Map
+        |> Map.map (fun position tile ->
+            let imageWithoutBorder =
+                tile.Image
+                |> Map.filter (fun (rowIndex, columnIndex) character ->
+                    rowIndex <> 0 && rowIndex <> tile.Size - 1 &&
+                    columnIndex <> 0 && columnIndex <> tile.Size - 1
+                )
+                |> Map.toList
+                |> List.map (fun ((rowIndex, columnIndex), character) ->
+                    ((rowIndex - 1, columnIndex - 1), character)
+                )
+                |> Map.ofList
+
+            let newSize = tile.Size - 2
+
+            { tile with Image = imageWithoutBorder; Size = newSize }
+        )
+
+    let unifiedTile = {
+        Id = 0L
+        Size = solution.Size * withoutBorders.[0, 0].Size
+        Image =
+            withoutBorders
+            |> Map.toList
+            |> List.collect (fun ((tileRowIndex, tileColumnIndex), tile) ->
+                tile.Image
+                |> Map.toList
+                |> List.map (fun ((rowIndex, columnIndex), character) ->
+                    let newPosition = (
+                        (tileRowIndex * tile.Size) + rowIndex,
+                        (tileColumnIndex * tile.Size) + columnIndex
+                    )
+                    (newPosition, character)
+                )
+            )
+            |> Map.ofList
+    }
+
+    let seaMonsterPattern =
+        [
+            "..................#."
+            "#....##....##....###"
+            ".#..#..#..#..#..#..."
+        ] |> List.map Regex
+
+    let transformWithMostSeaMonsters =
+        GetTileTransforms unifiedTile
+        |> Seq.map (fun transformedTile ->
+            let tileAsList = TileToStringList transformedTile
+            let tileWithoutTopAndBottom = tileAsList.[1..tileAsList.Length-2]
+
+            let seaMonsterCount =
+                tileWithoutTopAndBottom
+                |> List.indexed
+                |> List.fold (fun count (index, line) ->
+                    let seaMonsterMiddleLine = seaMonsterPattern.[1]
+
+                    let seaMonsterCountInThisLine =
+                        seaMonsterMiddleLine.Matches(line)
+                        |> Seq.filter (fun aMatch ->
+                            let previousLine = tileWithoutTopAndBottom.[index - 1].[aMatch.Index .. aMatch.Index + aMatch.Value.Length]
+                            let nextLine = tileWithoutTopAndBottom.[index + 1].[aMatch.Index .. aMatch.Index + aMatch.Value.Length]
+
+                            seaMonsterPattern.[0].IsMatch(previousLine) &&
+                            seaMonsterPattern.[2].IsMatch(nextLine)
+                        )
+                        |> Seq.length
+
+                    count + seaMonsterCountInThisLine
+                ) 0
+
+            { Tile=transformedTile; SeaMonsterCount=seaMonsterCount }
+        )
+        |> Seq.maxBy (fun tileWithCount -> tileWithCount.SeaMonsterCount)
+
+    let waterRoughness =
+        let roughnessCount = transformWithMostSeaMonsters.Tile.Image |> Map.filter (fun _ character -> character = '#') |> Map.count
+        roughnessCount - (transformWithMostSeaMonsters.SeaMonsterCount * 15)
+
+    waterRoughness
+
+
 [<EntryPoint>]
 let main argv =
 
@@ -215,5 +328,6 @@ let main argv =
         |> String.concat "\n"
 
     printfn "Answer for part one is %d" (SolvePuzzle input)
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo input)
 
     0
