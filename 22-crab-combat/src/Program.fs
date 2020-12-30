@@ -20,26 +20,73 @@ let GetScore deck =
 
 type Winner = { WinningPlayer: int; WinningDeck: int list }
 
-let rec PlayGameUntilWinner firstPlayerDeck secondPlayerDeck =
-    if List.isEmpty firstPlayerDeck then
-        { WinningPlayer = 2; WinningDeck = secondPlayerDeck }
-    elif List.isEmpty secondPlayerDeck then
-        { WinningPlayer = 1; WinningDeck = firstPlayerDeck }
+let rec PlayGamePartOne playerOneDeck playerTwoDeck =
+    if List.isEmpty playerOneDeck then
+        { WinningPlayer = 2; WinningDeck = playerTwoDeck }
+    elif List.isEmpty playerTwoDeck then
+        { WinningPlayer = 1; WinningDeck = playerOneDeck }
     else
-        let firstPlayerFirstCard :: firstPlayerRest = firstPlayerDeck
-        let secondPlayerFirstCard :: secondPlayerRest = secondPlayerDeck
+        let playerOneFirstCard :: playerOneRest = playerOneDeck
+        let playerTwoFirstCard :: playerTwoRest = playerTwoDeck
 
-        if firstPlayerFirstCard > secondPlayerFirstCard then
-            PlayGameUntilWinner (firstPlayerRest @ [firstPlayerFirstCard; secondPlayerFirstCard]) secondPlayerRest
+        if playerOneFirstCard > playerTwoFirstCard then
+            PlayGamePartOne (playerOneRest @ [playerOneFirstCard; playerTwoFirstCard]) playerTwoRest
         else
-            PlayGameUntilWinner firstPlayerRest (secondPlayerRest @ [secondPlayerFirstCard; firstPlayerFirstCard])
+            PlayGamePartOne playerOneRest (playerTwoRest @ [playerTwoFirstCard; playerOneFirstCard])
 
-let SolvePuzzle (input: string) =
-    let [ firstPlayerDeck; secondPlayerDeck ] = ParseInput input
+module RoundMemory =
+    type Memory = { RoundsPlayerOne: int list list; RoundsPlayerTwo: int list list }
 
-    let winner = PlayGameUntilWinner firstPlayerDeck secondPlayerDeck
+    let empty = { RoundsPlayerOne = []; RoundsPlayerTwo = [] }
+
+    let hasBeenPlayedBefore playerOneDeck playerTwoDeck roundMemory =
+        roundMemory.RoundsPlayerOne |> List.contains playerOneDeck ||
+        roundMemory.RoundsPlayerTwo |> List.contains playerTwoDeck
+
+let rec PlayGamePartTwo (roundMemory: RoundMemory.Memory) playerOneDeck playerTwoDeck =
+    if roundMemory |> RoundMemory.hasBeenPlayedBefore playerOneDeck playerTwoDeck then
+        { WinningPlayer = 1; WinningDeck = playerOneDeck }
+    elif List.isEmpty playerOneDeck then
+        { WinningPlayer = 2; WinningDeck = playerTwoDeck }
+    elif List.isEmpty playerTwoDeck then
+        { WinningPlayer = 1; WinningDeck = playerOneDeck }
+    else
+        let newMemory: RoundMemory.Memory = {
+            RoundsPlayerOne = roundMemory.RoundsPlayerOne @ [playerOneDeck]
+            RoundsPlayerTwo = roundMemory.RoundsPlayerTwo @ [playerTwoDeck]
+        }
+
+        let playNextTurn = PlayGamePartTwo newMemory
+
+        let playerOneFirstCard :: playerOneRest = playerOneDeck
+        let playerTwoFirstCard :: playerTwoRest = playerTwoDeck
+
+        if playerOneRest.Length >= playerOneFirstCard && playerTwoRest.Length >= playerTwoFirstCard then
+            let subGameWinner = PlayGamePartTwo RoundMemory.empty (playerOneRest |> List.take playerOneFirstCard) (playerTwoRest |> List.take playerTwoFirstCard)
+
+            if subGameWinner.WinningPlayer = 1 then
+                playNextTurn (playerOneRest @ [playerOneFirstCard; playerTwoFirstCard]) playerTwoRest
+            else
+                playNextTurn playerOneRest (playerTwoRest @ [playerTwoFirstCard; playerOneFirstCard])
+        else
+            if playerOneFirstCard > playerTwoFirstCard then
+                playNextTurn (playerOneRest @ [playerOneFirstCard; playerTwoFirstCard]) playerTwoRest
+            else
+                playNextTurn playerOneRest (playerTwoRest @ [playerTwoFirstCard; playerOneFirstCard])
+
+
+let PlayGameAndGetWinningScore input playGame =
+    let [ playerOneDeck; playerTwoDeck ] = ParseInput input
+
+    let winner = playGame playerOneDeck playerTwoDeck
 
     GetScore winner.WinningDeck
+
+let SolvePuzzle (input: string) =
+    PlayGameAndGetWinningScore input PlayGamePartOne
+
+let SolvePuzzlePartTwo (input: string) =
+    PlayGameAndGetWinningScore input (PlayGamePartTwo RoundMemory.empty)
 
 [<EntryPoint>]
 let main argv =
@@ -52,5 +99,6 @@ let main argv =
         |> String.concat "\n"
 
     printfn "Answer for part one is %d" (SolvePuzzle input)
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo input)
 
     0

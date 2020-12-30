@@ -20,3 +20,22 @@ Player 2:
 10".Replace("\r\n", "\n"))
 
     Assert.Equal(306, result)
+
+[<Fact>]
+let ``SolvePuzzlePartTwo WhenExample ThenReturns291`` () =
+    let result =
+        Program.SolvePuzzlePartTwo("Player 1:
+9
+2
+6
+3
+1
+
+Player 2:
+5
+8
+4
+7
+10".Replace("\r\n", "\n"))
+
+    Assert.Equal(291, result)
