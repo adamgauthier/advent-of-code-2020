@@ -75,6 +75,19 @@ let SolvePuzzle input =
 
     timesIngredientsWithoutAllergenAppear
 
+
+let SolvePuzzlePartTwo input =
+    let foods = input |> List.map ParseFood
+
+    let matchedAllergens = MatchAllAllergensWithIngredients foods
+
+    let ingredientsMatchinAnAllergenAlphabetical =
+        matchedAllergens
+        |> List.sortBy (fun matched -> matched.Allergen)
+        |> List.map (fun matched -> matched.Ingredient)
+
+    ingredientsMatchinAnAllergenAlphabetical |> String.concat ","
+
 [<EntryPoint>]
 let main argv =
 
@@ -85,5 +98,6 @@ let main argv =
         |> List.ofArray
 
     printfn "Answer for part one is %d" (SolvePuzzle input)
+    printfn "Answer for part two is %s" (SolvePuzzlePartTwo input)
 
     0
