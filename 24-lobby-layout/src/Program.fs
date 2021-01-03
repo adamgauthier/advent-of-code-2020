@@ -62,6 +62,57 @@ let SolvePuzzle input =
 
     List.length blackTiles
 
+let GetAdjacents (x, y, z) =
+    [East; SouthEast; SouthWest; West; NorthWest; NorthEast]
+    |> List.map (fun direction ->
+        let (xOffset, yOffset, zOffset) = GetOffset direction
+
+        (x + xOffset, y + yOffset, z + zOffset)
+    )
+
+let Apply1Day (blackTiles: TileCoordinate list): TileCoordinate list =
+    let blackTilesAdjacents = blackTiles |> Seq.map (fun t -> (t, GetAdjacents t)) |> Map.ofSeq
+    let isBlack tile = blackTilesAdjacents |> Map.containsKey tile
+
+    let whiteTiles =
+        blackTiles
+        |> List.collect (fun t -> blackTilesAdjacents.[t])
+        |> List.filter (not << isBlack)
+
+    let whiteTilesWith2BlackAdjacents =
+        whiteTiles
+        |> List.filter (fun whiteTile ->
+            let adjacents = GetAdjacents whiteTile
+            let blackAdjacents = adjacents |> List.filter isBlack |> List.length
+
+            blackAdjacents = 2
+        )
+
+    blackTiles
+    |> List.filter (fun blackTile ->
+        let adjacents = GetAdjacents blackTile
+        let blackAdjacents = adjacents |> List.filter isBlack |> List.length
+
+        not (blackAdjacents = 0 || blackAdjacents > 2)
+    )
+    |> List.append whiteTilesWith2BlackAdjacents
+    |> List.distinct
+
+let rec Apply100Days blackTiles i =
+    if i = 100 then
+        blackTiles
+    else
+        let newBlackTiles = Apply1Day blackTiles
+        Apply100Days newBlackTiles (i+1)
+
+let SolvePuzzlePartTwo input =
+    let tilePaths =
+        input |> List.map (ParseTilePath >> ToCoordinate)
+
+    let day0BlackTiles = FlipTiles tilePaths
+
+    List.length (Apply100Days day0BlackTiles 0)
+
 [<EntryPoint>]
 let main argv =
 
@@ -72,5 +123,6 @@ let main argv =
         |> List.ofArray
 
     printfn "Answer for part one is %d" (SolvePuzzle input)
+    printfn "Answer for part two is %d" (SolvePuzzlePartTwo input)
 
     0
